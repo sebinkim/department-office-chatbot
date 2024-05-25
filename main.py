@@ -1,5 +1,7 @@
 import streamlit as st
 
+from image import generate_image
+
 import rag
 
 if "messages" not in st.session_state:
@@ -8,6 +10,11 @@ if "messages" not in st.session_state:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+
+with st.sidebar:
+    st.write("여러분의 친절한 상담사입니다.")
+    url = generate_image(len(st.session_state.messages) // 2)
+    st.image(image=url)
 
 prompt = st.chat_input("문의사항을 입력해 주세요.")
 if prompt:

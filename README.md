@@ -26,7 +26,7 @@ source .venv/bin/activate
 ### 2. Install requirements
 
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 의존성이 업데이트되었을 경우 (`pip install`로 무언가를 설치했을 경우)

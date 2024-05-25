@@ -6,12 +6,12 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate, MessagesPlaceholder
 
 import config
-from llm import llm
+from llm import llm_prompt, llm_conversation
 
 os.environ["FRIENDLI_TOKEN"] = config.FRIENDLI_TOKEN
 
 # document_ids = ["OpSYpHpaiDEL", "REn1dvZbezcE", "qJ0OeAqYUajP", "Uufw2nnFQzxK"]
-document_ids = ["GrMXVtV7ae9I", "7xTiDeHuuEAD", "17t5nUTgoypK", "0CVkcIbw95ml"]
+document_ids = ["GrMXVtV7ae9I", "PVDxtI4DS65R"] # , "17t5nUTgoypK", "0CVkcIbw95ml", "I7EP4FXwXEDl"]
 
 def retrieve_contexts(document_ids: list[str], query: str, k: int) -> list[str]:
     resp = requests.post(
@@ -35,15 +35,18 @@ def retrieve_contexts(document_ids: list[str], query: str, k: int) -> list[str]:
 
 SYSTEM_TEMPLATE = """
 대화가 주어지면, 아래 제공된 context를 기반으로 질문에 답변하세요.
-당신은 "서울대학교 컴퓨터공학부 학과사무실"의 챗봇입니다. 서울대학교 컴퓨터공학부와 관련된 질문만 답변하십시오. 만약 관련 없는 질문이 들어오면, 다음과 같이 답변하십시오: "저는 서울대학교 컴퓨터공학부 학과사무실 챗봇입니다. 컴퓨터공학부와 관련된 정보만 질문해 주세요."
+당신은 "서울대학교 컴퓨터공학부 학과사무실"의 챗봇입니다. 서울대학교 컴퓨터공학부와 관련된 질문만 답변하십시오.
+
+만약 관련 없는 질문이 들어오면, 다음과 같이 답변하십시오: "저는 서울대학교 컴퓨터공학부 학과사무실 챗봇입니다. 컴퓨터공학부와 관련된 정보만 질문해 주세요."
 
 만약 필요한 정보를 찾지 못하거나 답변이 불확실하면, 다음과 같이 안내하십시오: "해당 정보를 찾지 못했습니다. 추가적인 도움이 필요하시면, 문의하고자 하는 내용과 함께 연락처를 남겨 주시면 관련 교직원의 연락처를 안내해 드리겠습니다. 또는 학과 홈페이지(https://cse.snu.ac.kr/)에서 직접 정보를 찾아보실 수도 있습니다."
+
+답변의 길이는 1000자를 넘지 마시오.
 
 질문에 대한 답변을 생성할 때는 정확한 한국어 맞춤법을 사용하고, 정중하게 작성하십시오.
 
 <context>
 {context}
-</context>
 """
 
 question_answering_prompt = ChatPromptTemplate.from_messages(
@@ -54,7 +57,7 @@ question_answering_prompt = ChatPromptTemplate.from_messages(
 )
 
 # document_chain = create_stuff_documents_chain(llm, question_answering_prompt)
-question_answering_chain = question_answering_prompt | llm
+question_answering_chain = question_answering_prompt | llm_conversation
 
 # Step 2. Retrieval chain
 
@@ -89,13 +92,13 @@ QUERY_TRANSFORM_TEMPLATE = """
 
 query_transform_prompt = ChatPromptTemplate.from_messages(
     [
+        ("system", QUERY_TRANSFORM_TEMPLATE),
         MessagesPlaceholder(variable_name="messages"),
-        ("user", QUERY_TRANSFORM_TEMPLATE),
     ]
 )
 
 query_transforming_retrieval_chain = \
-    query_transform_prompt | llm | StrOutputParser()
+    query_transform_prompt | llm_prompt | StrOutputParser()
 
 
 # Step 4. Context refinement chain
@@ -107,23 +110,21 @@ raw data 그대로 발췌하여 제공해야 하며, 어떠한 수정이나 요�
 
 <context>
 {context}
-</context>
 
 <answer>
 {answer}
-</answer>
 """
 
 
 context_refinement_prompt = PromptTemplate.from_template(CONTEXT_REFINEMENT_TEMPLATE)
 
-context_refinement_chain = context_refinement_prompt | llm
+context_refinement_chain = context_refinement_prompt | llm_prompt
 
 # Run
 
 # def stream(history: list[dict]):
 #     messages = [
-#         HumanMessage(content=message["content"]) if message["role"] == "user" else \
+#         HumanMessage(content=mespromptsage["content"]) if message["role"] == "user" else \
 #         AIMessage(content=message["content"]) \
 #             for message in history
 #     ]
@@ -138,10 +139,13 @@ def stream_step1(prompt: str):
         HumanMessage(content=prompt)
     ]
 
+    print(messages)
     query = query_transforming_retrieval_chain.invoke({
         "messages": messages
     })
+    print("query")
     context = custom_retriever(query)
+    print("context")
     stream = question_answering_chain.stream({
         "messages": messages,
         "context": context,
