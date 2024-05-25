@@ -36,4 +36,4 @@ if prompt:
         })
 else:
     title = st.title(":robot_face: 컴퓨터공학부 학과사무소 챗봇 :robot_face:")
-
+``` image = st.image("https://d25fcd02hwfaxf.cloudfront.net/240525/055245908809_fe0711d11a2abd73469450bed683dab6.png")
