@@ -37,7 +37,7 @@ def retrieve_contexts(document_ids: list[str], query: str, k: int) -> list[str]:
 
 SYSTEM_TEMPLATE = """
 대화가 주어지면, 아래 context를 기반으로 질문에 답하세요.
-질문에 답을 알지 못하면 답을 지어내지 말고 "알빠노?"라고 답하세요.
+질문에 답을 알지 못하면 답을 지어내지 말고 "죄송합니다. 더 자세한 내용은 (02) 880-7288로 문의해 주세요."라고 답하세요.
 한국어로 맞춤법을 지켜 정중하게 답하세요.
 
 <context>
