@@ -13,7 +13,7 @@ from llm import llm
 os.environ["FRIENDLI_TOKEN"] = config.FRIENDLI_TOKEN
 
 # document_ids = ["OpSYpHpaiDEL", "REn1dvZbezcE", "qJ0OeAqYUajP", "Uufw2nnFQzxK"]
-document_ids = ["GrMXVtV7ae9I", "7xTiDeHuuEAD"]
+document_ids = ["GrMXVtV7ae9I", "7xTiDeHuuEAD", "17t5nUTgoypK", "0CVkcIbw95ml"]
 
 def retrieve_contexts(document_ids: list[str], query: str, k: int) -> list[str]:
     resp = requests.post(
