@@ -9,7 +9,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-prompt = st.chat_input("졸업 규정에 대한 질문을 입력하세요.")
+prompt = st.chat_input("문의사항을 입력해 주세요.")
 if prompt:
     st.session_state.messages.append({
         "role": "user",
@@ -29,3 +29,5 @@ if prompt:
         "role": "assistant",
         "content": response
     })
+else:
+    title = st.title(":robot_face: 컴퓨터공학부 학과사무소 챗봇 :robot_face:")
