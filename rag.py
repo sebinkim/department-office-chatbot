@@ -6,12 +6,10 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate, MessagesPlaceholder
 
 import config
-from llm import llm_prompt, llm_conversation
-
-os.environ["FRIENDLI_TOKEN"] = config.FRIENDLI_TOKEN
+from llm import llm, llm_prompt, llm_conversation
 
 # document_ids = ["OpSYpHpaiDEL", "REn1dvZbezcE", "qJ0OeAqYUajP", "Uufw2nnFQzxK"]
-document_ids = ["GrMXVtV7ae9I", "PVDxtI4DS65R"] # , "17t5nUTgoypK", "0CVkcIbw95ml", "I7EP4FXwXEDl"]
+document_ids = ["PVDxtI4DS65R", "GrMXVtV7ae9I", ] #"17t5nUTgoypK", "0CVkcIbw95ml", "I7EP4FXwXEDl"]
 
 def retrieve_contexts(document_ids: list[str], query: str, k: int) -> list[str]:
     resp = requests.post(
@@ -86,19 +84,25 @@ def custom_retriever(question: str):
 # Step 3. Query transform chain
 
 QUERY_TRANSFORM_TEMPLATE = """
-아래 대화 내용을 기반으로 사용자가 요청한 정보를 정확히 찾기 위한 데이터베이스 검색 query를 생성하세요. 생성된 query는 사용자의 질문에 대한 답변을 찾는 데 필요한 모든 관련 정보를 포함해야 합니다. 
+위 대화만을 참고해, 사용자가 필요한 정보를 정확히 얻기 위한 질문을 한국어로 생성하세요.
+질문 외에 다른 문장은 만들지 마세요."
+"""
+
+"""
+RAG를 이용해 사용자가 요청한 정보를 답하기 위한 검색 query를 생성하세요.
+생성된 query는 사용자의 질문에 대한 답변을 찾는 데 필요한 모든 관련 정보를 포함해야 합니다. 
 쿼리 외에 다른 문장이나 설명은 작성하지 마세요.
 """
 
 query_transform_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", QUERY_TRANSFORM_TEMPLATE),
         MessagesPlaceholder(variable_name="messages"),
+        ("user", QUERY_TRANSFORM_TEMPLATE),
     ]
 )
 
 query_transforming_retrieval_chain = \
-    query_transform_prompt | llm_prompt | StrOutputParser()
+    query_transform_prompt | llm | StrOutputParser()
 
 
 # Step 4. Context refinement chain
@@ -139,13 +143,26 @@ def stream_step1(prompt: str):
         HumanMessage(content=prompt)
     ]
 
-    print(messages)
     query = query_transforming_retrieval_chain.invoke({
         "messages": messages
     })
-    print("query")
+
+    print("Query Transform Prompt:", query_transform_prompt.invoke({
+        "messages": messages
+    }))
+    print("Generated Query:", query)
+    print()
+
     context = custom_retriever(query)
-    print("context")
+
+    print("Retrieved Context:", context)
+    print()
+
+    print("Question Answering Prompt:", question_answering_prompt.invoke({
+        "messages": messages,
+        "context": context,
+    }))
+
     stream = question_answering_chain.stream({
         "messages": messages,
         "context": context,

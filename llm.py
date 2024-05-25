@@ -1,5 +1,11 @@
 import config
+import os
 from langchain_openai import ChatOpenAI
+from langchain_community.chat_models.friendli import ChatFriendli
+
+os.environ["FRIENDLI_TOKEN"] = config.FRIENDLI_TOKEN
+
+llm = ChatFriendli(model="meta-llama-3-70b-instruct")
 
 llm_prompt = ChatOpenAI(
     base_url="https://inference.friendli.ai/dedicated/v1",
