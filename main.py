@@ -29,3 +29,5 @@ if prompt:
         "role": "assistant",
         "content": response
     })
+else: 
+    title = st.title(":robot_face: 컴퓨터공학부 학과사무소 챗봇 :robot_face:")
