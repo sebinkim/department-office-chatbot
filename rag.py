@@ -4,8 +4,6 @@ import os
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnablePassthrough
-from langchain_community.chat_models.friendli import ChatFriendli
 
 import config
 from llm import llm
@@ -36,9 +34,12 @@ def retrieve_contexts(document_ids: list[str], query: str, k: int) -> list[str]:
 # Step 1. Question answering chain
 
 SYSTEM_TEMPLATE = """
-대화가 주어지면, 아래 context를 기반으로 질문에 답하세요.
-질문에 답을 알지 못하면 답을 지어내지 말고 "죄송합니다. 더 자세한 내용은 (02) 880-7288로 문의해 주세요."라고 답하세요.
-한국어로 맞춤법을 지켜 정중하게 답하세요.
+대화가 주어지면, 아래 제공된 context를 기반으로 질문에 답변하세요.
+당신은 "서울대학교 컴퓨터공학부 학과사무실"의 챗봇입니다. 서울대학교 컴퓨터공학부와 관련된 질문만 답변하십시오. 만약 관련 없는 질문이 들어오면, 다음과 같이 답변하십시오: "저는 서울대학교 컴퓨터공학부 학과사무실 챗봇입니다. 컴퓨터공학부와 관련된 정보만 질문해 주세요."
+
+만약 필요한 정보를 찾지 못하거나 답변이 불확실하면, 다음과 같이 안내하십시오: "해당 정보를 찾지 못했습니다. 추가적인 도움이 필요하시면, 문의하고자 하는 내용과 함께 연락처를 남겨 주시면 관련 교직원의 연락처를 안내해 드리겠습니다. 또는 학과 홈페이지(https://cse.snu.ac.kr/)에서 직접 정보를 찾아보실 수도 있습니다."
+
+질문에 대한 답변을 생성할 때는 정확한 한국어 맞춤법을 사용하고, 정중하게 작성하십시오.
 
 <context>
 {context}
@@ -82,8 +83,8 @@ def custom_retriever(question: str):
 # Step 3. Query transform chain
 
 QUERY_TRANSFORM_TEMPLATE = """
-위 대화만을 참고해, 데이터베이스에서 필요한 정보를 얻기 위한 검색 쿼리를 생성하세요.
-쿼리 외에 다른 문장은 만들지 마세요."
+아래 대화 내용을 기반으로 사용자가 요청한 정보를 정확히 찾기 위한 데이터베이스 검색 query를 생성하세요. 생성된 query는 사용자의 질문에 대한 답변을 찾는 데 필요한 모든 관련 정보를 포함해야 합니다. 
+쿼리 외에 다른 문장이나 설명은 작성하지 마세요.
 """
 
 query_transform_prompt = ChatPromptTemplate.from_messages(
@@ -99,20 +100,22 @@ query_transforming_retrieval_chain = \
 
 # Step 4. Context refinement chain
 
-CONTEXT_REFINEMENT_PROMPT = """
-아래 주어진 context에서 아래 주어진 query과 관련 있는 내용만 남기고 나머지는 제거해 답변하세요.
-필요한 내용만 답변하고, 다른 문잗은 추가하지 마세요.
+CONTEXT_REFINEMENT_TEMPLATE = """
+아래 주어진 'context'에서 'answer'와 직접적으로 관련 없는 정보를 제거하시오.
+raw data 그대로 발췌하여 제공해야 하며, 어떠한 수정이나 요약도 하지 마시오.
+관련 정보는 하나의 연속된 덩어리로 뽑아내고, 응답의 맨 처음에 "**발췌한 텍스트의 원문은 아래와 같습니다:**"를 넣으시오.
 
 <context>
 {context}
 </context>
-<query>
-{query}
-</query>
+
+<answer>
+{answer}
+</answer>
 """
 
 
-context_refinement_prompt = PromptTemplate.from_template(CONTEXT_REFINEMENT_PROMPT)
+context_refinement_prompt = PromptTemplate.from_template(CONTEXT_REFINEMENT_TEMPLATE)
 
 context_refinement_chain = context_refinement_prompt | llm
 
@@ -130,25 +133,24 @@ context_refinement_chain = context_refinement_prompt | llm
 #         }
 #     )
 
-def invoke(history: list[dict]):
+def stream_step1(prompt: str):
     messages = [
-        HumanMessage(content=message["content"]) if message["role"] == "user" else \
-        AIMessage(content=message["content"]) \
-            for message in history
+        HumanMessage(content=prompt)
     ]
 
     query = query_transforming_retrieval_chain.invoke({
         "messages": messages
     })
     context = custom_retriever(query)
-    answer = question_answering_chain.invoke({
+    stream = question_answering_chain.stream({
         "messages": messages,
         "context": context,
-    }).content
+    })
 
-    truncated_context = context_refinement_chain.invoke({
+    return context, stream
+
+def stream_step2(context, answer):
+    return context_refinement_chain.stream({
         "context": context,
-        "query": query
-    }).content
-
-    return str(answer) + "\n\n[참고 자료]\n\n" + str(truncated_context)
+        "answer": answer
+    })

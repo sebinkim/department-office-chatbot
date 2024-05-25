@@ -20,14 +20,20 @@ if prompt:
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        # stream = rag.stream(st.session_state.messages)
-        # response = st.write_stream(stream)
-        response = rag.invoke(st.session_state.messages)
-        st.write(response)
+        context, stream = rag.stream_step1(prompt)
+        response1 = st.write_stream(stream)
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": response
-    })
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response1
+        })
+        stream = rag.stream_step2(context, response1)
+        response2 = st.write_stream(stream)
+
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response2
+        })
 else:
     title = st.title(":robot_face: 컴퓨터공학부 학과사무소 챗봇 :robot_face:")
+
